@@ -170,4 +170,13 @@ public class Utility {
             return null;
         }
     }
+
+    public static void handleWeatherResponse(Context context, String response){
+
+    }
+
+    public static void saveWeatherInfo(Context context, String cityName, String weatherCode, String temp1, String temp2,
+                                       String weatherDesp, String publishTime){
+
+    }
 }

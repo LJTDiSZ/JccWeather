@@ -1,11 +1,17 @@
 package com.jcc.jccweather.activity;
 
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
@@ -21,11 +27,16 @@ import com.jcc.jccweather.util.HttpCallbackListener;
 import com.jcc.jccweather.util.HttpUtil;
 import com.jcc.jccweather.util.Utility;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class ChooseAreaActivity extends AppCompatActivity {
     private static final String TAG = "ChooseArea";
+    private static final int SHOW_TEMP = 1;
+    private static final int SHOW_ERROR = -1;
 
     public static final int LEVEL_PROVINCE = 0;
     public static final int LEVEL_CITY = 1;
@@ -43,7 +54,33 @@ public class ChooseAreaActivity extends AppCompatActivity {
     private List<County> countyList;
     private Province selectedProvince;
     private City selectedCity;
+    private County selectedCounty;
     private int currentLevel;
+
+    private Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what){
+                case SHOW_ERROR:
+                    break;
+                case SHOW_TEMP:
+                    String sInfo = (String)msg.obj;
+                    AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(ChooseAreaActivity.this);
+                    dialogBuilder.setTitle("Warning");
+                    dialogBuilder.setMessage(sInfo);
+                    dialogBuilder.setCancelable(false);
+                    dialogBuilder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                        }
+                    });
+                    AlertDialog alertDialog = dialogBuilder.create();
+                    alertDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
+                    alertDialog.show();
+                    break;
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,6 +101,9 @@ public class ChooseAreaActivity extends AppCompatActivity {
                 } else if (currentLevel == LEVEL_CITY){
                     selectedCity = cityList.get(i);
                     queryCounties();
+                } else if (currentLevel == LEVEL_COUNTY) {
+                    selectedCounty = countyList.get(i);
+                    queryWeatherFromServer(selectedCounty.getCountyCode());
                 }
             }
         });
@@ -256,5 +296,38 @@ public class ChooseAreaActivity extends AppCompatActivity {
         } else {
             finish();
         }
+    }
+
+    private void queryWeatherFromServer(final String cityCode){
+        String httpUrl = "https://api.heweather.com/x3/weather?cityid=" + cityCode + "&key=a8a9f3f25a01453d8908e0b755570e9b";
+        HttpUtil.sendHttpRequest(httpUrl, new HttpCallbackListener() {
+            @Override
+            public void onFinish(String response) {
+                try {
+                    JSONObject theRes = new JSONObject(response);
+                    JSONObject nowObj = theRes.getJSONArray("HeWeather data service 3.0").getJSONObject(0).getJSONObject("now");
+                    JSONObject conObj = nowObj.getJSONObject("cond");
+
+                    Message msg = new Message();
+                    msg.what = SHOW_TEMP;
+                    msg.obj = conObj.getString("txt") + " : " + nowObj.getInt("tmp");
+                    handler.sendMessage(msg);
+                }catch (Exception e){
+                    Log.d(TAG, e.getMessage());
+                }
+            }
+
+            @Override
+            public void onError(Exception e) {
+                final String errMsg = e.getMessage();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(ChooseAreaActivity.this,
+                                "失败:" + errMsg, Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        });
     }
 }
