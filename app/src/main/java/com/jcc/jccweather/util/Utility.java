@@ -1,6 +1,8 @@
 package com.jcc.jccweather.util;
 
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.text.TextUtils;
 import android.widget.Toast;
 
@@ -9,10 +11,16 @@ import com.jcc.jccweather.model.City;
 import com.jcc.jccweather.model.County;
 import com.jcc.jccweather.model.Province;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Created by juyuan on 12/31/2015.
@@ -172,11 +180,38 @@ public class Utility {
     }
 
     public static void handleWeatherResponse(Context context, String response){
+        try {
+            JSONObject jsonObject = new JSONObject(response);
+            JSONObject firstObj = jsonObject.getJSONArray("HeWeather data service 3.0").getJSONObject(0);
+            JSONObject nowObj = firstObj.getJSONObject("now");
+            JSONObject basicObj = firstObj.getJSONObject("basic");
 
+            String cityName = basicObj.getString("city");
+            String weatherCode = basicObj.getString("id");
+            String temp1 = nowObj.getString("tmp");
+            String temp2 = nowObj.getString("fl");
+            String publishTime = basicObj.getJSONObject("update").getString("loc");
+            String weatherDesp = nowObj.getJSONObject("cond").getString("txt") + ", "
+                    + nowObj.getJSONObject("wind").getString("dir");
+            saveWeatherInfo(context, cityName, weatherCode, temp1, temp2,
+                    weatherDesp, publishTime);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
     }
 
-    public static void saveWeatherInfo(Context context, String cityName, String weatherCode, String temp1, String temp2,
-                                       String weatherDesp, String publishTime){
-
+    public static void saveWeatherInfo(Context context, String cityName, String weatherCode,
+                                       String temp1, String temp2, String weatherDesp, String publishTime){
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy年M月d日", Locale.CHINA);
+        SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(context).edit();
+        editor.putBoolean("city_selected", true);
+        editor.putString("city_name", cityName);
+        editor.putString("weather_code", weatherCode);
+        editor.putString("temp1", temp1);
+        editor.putString("temp2", temp2);
+        editor.putString("weather_desp", weatherDesp);
+        editor.putString("publish_time", publishTime);
+        editor.putString("current_date", sdf.format(new Date()));
+        editor.commit();
     }
 }
